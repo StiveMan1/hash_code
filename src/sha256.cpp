@@ -1,4 +1,37 @@
+#include <cstring>
 #include "sha256.h"
+#include <malloc.h>
+
+#define SHA2_SHFR(x, n)    (x >> n)
+#define SHA2_ROTR(x, n)   ((x >> n) | (x << ((sizeof(x) << 3) - n)))
+#define SHA2_ROTL(x, n)   ((x << n) | (x >> ((sizeof(x) << 3) - n)))
+#define SHA2_CH(x, y, z)  ((x & y) ^ (~x & z))
+#define SHA2_MAJ(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
+#define SHA256_F1(x) (SHA2_ROTR(x,  2) ^ SHA2_ROTR(x, 13) ^ SHA2_ROTR(x, 22))
+#define SHA256_F2(x) (SHA2_ROTR(x,  6) ^ SHA2_ROTR(x, 11) ^ SHA2_ROTR(x, 25))
+#define SHA256_F3(x) (SHA2_ROTR(x,  7) ^ SHA2_ROTR(x, 18) ^ SHA2_SHFR(x,  3))
+#define SHA256_F4(x) (SHA2_ROTR(x, 17) ^ SHA2_ROTR(x, 19) ^ SHA2_SHFR(x, 10))
+#define SHA2_UNPACK32(x, str)                 \
+{                                             \
+    *((str) + 3) = (unsigned char) ((x)      );       \
+    *((str) + 2) = (unsigned char) ((x) >>  8);       \
+    *((str) + 1) = (unsigned char) ((x) >> 16);       \
+    *((str) + 0) = (unsigned char) ((x) >> 24);       \
+}
+#define SHA2_PACK32(str, x)                   \
+{                                             \
+    *(x) =   ((unsigned) *((str) + 3)      )    \
+           | ((unsigned) *((str) + 2) <<  8)    \
+           | ((unsigned) *((str) + 1) << 16)    \
+           | ((unsigned) *((str) + 0) << 24);   \
+}
+
+typedef struct {
+    unsigned m_tot_len;
+    unsigned m_len;
+    unsigned char m_block[128];
+    unsigned m_h[8];
+} SHA256_DATA;
 
 const unsigned sha256_k[64] = //UL = uint32
         {0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -56,7 +89,7 @@ void transform(const unsigned char *message, unsigned block_nb, SHA256_DATA *sha
 }
 
 SHA256_DATA *SHA256_init() {
-    SHA256_DATA *result = malloc(sizeof(SHA256_DATA));
+    auto *result = (SHA256_DATA *) malloc(sizeof(SHA256_DATA));
     result->m_h[0] = 0x6a09e667;
     result->m_h[1] = 0xbb67ae85;
     result->m_h[2] = 0x3c6ef372;
@@ -106,11 +139,11 @@ void final(unsigned char *digest, SHA256_DATA *sha256Data) {
     SHA2_UNPACK32(len_b, sha256Data->m_block + pm_len - 4);
     transform(sha256Data->m_block, block_nb, sha256Data);
     for (i = 0; i < 8; i++) {
-        SHA2_UNPACK32(sha256Data->m_h[i], &digest[i << 2]);
+        SHA2_UNPACK32(sha256Data->m_h[i], &digest[i << 2])
     }
 }
 
-char *sha256(const char input[], const size_t size, size_t *res_size) {
+char *sha256_hash(const char input[], const size_t size, size_t *res_size) {
     unsigned char digest[32];
     memset(digest, 0, 32);
 
@@ -119,9 +152,26 @@ char *sha256(const char input[], const size_t size, size_t *res_size) {
     final(digest, ctx);
     free(ctx);
 
-    char *buf = malloc((64) * sizeof(char));
+    char *buf = (char *) malloc((64) * sizeof(char));
     *res_size = 64;
     for (int i = 0; i < 32; i++)
         sprintf(buf + i * 2, "%02x", digest[i]);
     return buf;
+}
+
+
+std::string hash::sha256::code(const std::string &msg) {
+    size_t size = msg.length();
+    size_t res_size = 0;
+
+    char *c_res;
+
+    c_res = sha256_hash(msg.c_str(), size, &res_size);
+
+    std::string result;
+    for(int i=0;i<res_size;i++){
+        result += c_res[i];
+    }
+    free(c_res);
+    return result;
 }

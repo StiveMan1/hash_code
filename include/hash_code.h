@@ -4,9 +4,22 @@
 
 #define SHA256 1
 
-#include "sha256.h"
+#include <string>
 
-char *code(const char msg[], size_t size, int type, size_t *res_size);
+namespace hash {
+
+    class NotRepresentedType : public std::exception {
+    };
+    class WrongType : public std::exception {
+    };
+
+    class hash_type {
+    public:
+        static std::string code(const std::string &msg);
+    };
+
+    std::string code(const std::string &msg, int type);
+}
 
 
 #endif //HASH_CODE_H
